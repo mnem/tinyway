@@ -82,16 +82,14 @@ void row_buffer_write(int x) {
 }
 
 void row_buffer_store_to_board(int y) {
+    y = wrap(y - 1, MAX_H);
+    const int row_start = y * ROW_GROUP_COUNT;
     for(int i = 0; i < ROW_GROUP_COUNT; i++) {
-        row_buffer_b[i] = row_buffer[i];
+        board[row_start + i] = row_buffer_b[i];
     }
     
-    y = wrap(y, MAX_H);
-    if (y >= 2) {
-        const int row_start = (y - 2) * ROW_GROUP_COUNT;
-        for(int i = 0; i < ROW_GROUP_COUNT; i++) {
-            board[row_start + i] = row_buffer_b[i];
-        }
+    for(int i = 0; i < ROW_GROUP_COUNT; i++) {
+        row_buffer_b[i] = row_buffer[i];
     }
 }
 
@@ -165,11 +163,11 @@ void board_print() {
 int main(int argc, const char * argv[]) {
     board_clear();
     
-    board_write(11, 10);
-    board_write(12, 10);
-    board_write(10, 11);
-    board_write(12, 11);
-    board_write(12, 12);
+    board_write(1, 0);
+    board_write(2, 0);
+    board_write(0, 1);
+    board_write(2, 1);
+    board_write(2, 2);
     board_print();
     
     board_evolve();
