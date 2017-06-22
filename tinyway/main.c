@@ -9,11 +9,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define LOG(args...) printf(args)
-
-#define log()
-
-#define MAX_W (128)
+#define MAX_W (64)
 #define MAX_H (16)
 
 typedef int8_t cell_group_t;
@@ -158,17 +154,6 @@ void board_print() {
 
 int main(int argc, const char * argv[]) {
     board_clear();
-    
-//    board_write(1, 10);
-//    board_write(2, 10);
-//    board_write(0, 11);
-//    board_write(2, 11);
-//    board_write(2, 12);
-    
-//    board_write(0, 0);
-//    board_write(-1, 0);
-//    board_write(-2, 0);
-    
     board_write(1, 0);
     board_write(1, 1);
     board_write(1, 2);
@@ -194,9 +179,68 @@ int main(int argc, const char * argv[]) {
     
     board_print();
     
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < 10; i++) {
         board_evolve();
         board_print();
     }
 }
+
+/*******************************************************************************
+ * Arduino
+ 
+// Just at the end of setup() call:
+void setupDefaultBoard() {
+    board_clear();
+ 
+    board_write(1, 0);
+    board_write(1, 1);
+    board_write(1, 2);
+ 
+    board_write(MAX_W-2, 0);
+    board_write(MAX_W-2, 1);
+    board_write(MAX_W-2, 2);
+ 
+    board_write(MAX_W-2, MAX_H - 1);
+    board_write(MAX_W-2, MAX_H - 2);
+    board_write(MAX_W-2, MAX_H - 3);
+ 
+    board_write(1, MAX_H - 1);
+    board_write(1, MAX_H - 2);
+    board_write(1, MAX_H - 3);
+ 
+ 
+    board_write(11,  8);
+    board_write(12,  8);
+    board_write(10,  9);
+    board_write(12,  9);
+    board_write(12, 10);
+}
+ 
+void displayBoard() {
+  display.clearDisplay();
+ 
+  for (int y = 0; y < MAX_H; y++) {
+    for (int x = 0; x < MAX_W; x++) {
+      if (board_read(x, y) == kCellAlive) {
+        int xd = x << 1;
+        int yd = y << 1;
+        display.drawPixel(xd  , yd  , WHITE);
+        display.drawPixel(xd+1, yd  , WHITE);
+        display.drawPixel(xd+1, yd+1, WHITE);
+        display.drawPixel(xd  , yd+1, WHITE);
+      }
+    }
+  }
+ 
+  display.display();
+}
+ 
+void loop() {
+  displayBoard();
+  board_evolve();
+ 
+  delay(100);
+}
+ 
+*******************************************************************************/
 
