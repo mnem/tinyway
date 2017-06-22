@@ -17,56 +17,145 @@
 #define MAX_H (16)
 
 typedef uint8_t cell_group_t;
+typedef uint8_t cell_t;
+
+const cell_t kCellAlive = 1;
+const cell_t kCellDead = 0;
+
 #define CELL_GROUP_WIDTH (8)
 #define ROW_GROUP_COUNT (MAX_W / CELL_GROUP_WIDTH)
 #define BOARD_GROUP_COUNT (ROW_GROUP_COUNT * MAX_H)
 
 cell_group_t board[BOARD_GROUP_COUNT];
 cell_group_t row_buffer[ROW_GROUP_COUNT];
+cell_group_t row_buffer_b[ROW_GROUP_COUNT];
 
 void board_clear() {
     const cell_group_t zero = 0;
-    for(size_t i = 0; i < BOARD_GROUP_COUNT; i++) {
+    for(int i = 0; i < BOARD_GROUP_COUNT; i++) {
         board[i] = zero;
     }
 }
 
+int wrap(int n, int max) {
+    n = n % max;
+    if (n < 0) {
+        return n + max;
+    } else {
+        return n;
+    }
+}
 
-/**
- Adds a cell to the board.
- 
- @param x
- @param y
- */
-void board_seed(size_t x, size_t y) {
-    if (y >= MAX_H) {
-        LOG("board_seed - y too large: %zu", y);
-        return;
+cell_t board_read(int x, int y) {
+    x = wrap(x, MAX_W);
+    y = wrap(y, MAX_H);
+    const int row_group = (int)(x / CELL_GROUP_WIDTH);
+    const int board_group = y * ROW_GROUP_COUNT + row_group;
+    const int group_offset = x - (row_group * CELL_GROUP_WIDTH);
+    const int shift = CELL_GROUP_WIDTH - 1 - group_offset;
+    
+    if (board[board_group] & (1 << shift)) {
+        return kCellAlive;
+    } else {
+        return kCellDead;
+    }
+}
+
+void board_write(int x, int y) {
+    x = wrap(x, MAX_W);
+    y = wrap(y, MAX_H);
+    const int row_group = (int)(x / CELL_GROUP_WIDTH);
+    const int board_group = y * ROW_GROUP_COUNT + row_group;
+    const int group_offset = x - (row_group * CELL_GROUP_WIDTH);
+    const int shift = CELL_GROUP_WIDTH - 1 - group_offset;
+    
+    board[board_group] |= 1 << shift;
+}
+
+void row_buffer_write(int x) {
+    x = wrap(x, MAX_W);
+    const int row_group = (int)(x / CELL_GROUP_WIDTH);
+    const int group_offset = x - (row_group * CELL_GROUP_WIDTH);
+    const int shift = CELL_GROUP_WIDTH - 1 - group_offset;
+    
+    row_buffer[row_group] |= 1 << shift;
+}
+
+void row_buffer_store_to_board(int y) {
+    for(int i = 0; i < ROW_GROUP_COUNT; i++) {
+        row_buffer_b[i] = row_buffer[i];
     }
     
-    const size_t w_group = (int)(x / CELL_GROUP_WIDTH);
-    if (w_group >= ROW_GROUP_COUNT) {
-        LOG("board_seed - x too large: %zu (%zu)", x, w_group);
-        return;
+    y = wrap(y, MAX_H);
+    if (y >= 2) {
+        const int row_start = (y - 2) * ROW_GROUP_COUNT;
+        for(int i = 0; i < ROW_GROUP_COUNT; i++) {
+            board[row_start + i] = row_buffer_b[i];
+        }
+    }
+}
+
+void row_buffer_flush_to_board(int y) {
+    y = wrap(y, MAX_H);
+    const int row_start = y * ROW_GROUP_COUNT;
+    for(int i = 0; i < ROW_GROUP_COUNT; i++) {
+        board[row_start + i] = row_buffer[i];
+    }
+}
+
+void row_buffer_clear() {
+    const cell_group_t zero = 0;
+    for(int i = 0; i < ROW_GROUP_COUNT; i++) {
+        row_buffer[i] = zero;
+    }
+}
+
+void row_buffer_clear_both() {
+    const cell_group_t zero = 0;
+    for(int i = 0; i < ROW_GROUP_COUNT; i++) {
+        row_buffer[i] = zero;
+        row_buffer_b[i] = zero;
+    }
+}
+
+void board_evolve() {
+    row_buffer_clear_both();
+    
+    for (int y = 0; y < MAX_H; y++) {
+        row_buffer_clear();
+        for (int x = 0; x < MAX_W; x++) {
+            int n = 0;
+            
+            n += board_read(x - 1, y - 1);
+            n += board_read(x    , y - 1);
+            n += board_read(x + 1, y - 1);
+            
+            n += board_read(x - 1, y    );
+            n += board_read(x + 1, y    );
+            
+            n += board_read(x - 1, y + 1);
+            n += board_read(x    , y + 1);
+            n += board_read(x + 1, y + 1);
+            
+            if (n == 3 || (n == 2 && board_read(x, y))) {
+                row_buffer_write(x);
+            }
+        }
+        row_buffer_store_to_board(y);
     }
     
-    const size_t group_offset = x - (w_group * CELL_GROUP_WIDTH);
-    const size_t shift = CELL_GROUP_WIDTH - 1 - group_offset;
-    board[y * ROW_GROUP_COUNT + w_group] |= 1 << shift;
+    row_buffer_flush_to_board(MAX_H - 1);
 }
 
 void board_print() {
     printf("\nBoard:\n");
-    for (size_t y = 0; y < MAX_H; y++) {
+    for (int y = 0; y < MAX_H; y++) {
         printf("  ");
-        for (size_t x = 0; x < ROW_GROUP_COUNT; x++) {
-            cell_group_t group = board[y * ROW_GROUP_COUNT + x];
-            for (int c = CELL_GROUP_WIDTH - 1; c >= 0; c-- ) {
-                if (group & (1 << c)) {
-                    printf("*");
-                } else {
-                    printf(".");
-                }
+        for (int x = 0; x < MAX_W; x++) {
+            if (board_read(x, y) == kCellAlive) {
+                printf("*");
+            } else {
+                printf(".");
             }
         }
         printf("\n");
@@ -75,21 +164,45 @@ void board_print() {
 
 int main(int argc, const char * argv[]) {
     board_clear();
+    
+    board_write(11, 10);
+    board_write(12, 10);
+    board_write(10, 11);
+    board_write(12, 11);
+    board_write(12, 12);
     board_print();
     
-    board_seed(0, 0);
+    board_evolve();
     board_print();
     
-    board_seed(MAX_W - 1, 0);
+    board_evolve();
     board_print();
     
-    board_seed(MAX_W - 1, MAX_H - 1);
+    board_evolve();
     board_print();
     
-    board_seed(0, MAX_H - 1);
+    board_evolve();
     board_print();
     
-    board_clear();
+    board_evolve();
+    board_print();
+    
+    board_evolve();
+    board_print();
+    
+    board_evolve();
+    board_print();
+    
+    board_evolve();
+    board_print();
+    
+    board_evolve();
+    board_print();
+    
+    board_evolve();
+    board_print();
+    
+    board_evolve();
     board_print();
 }
 
